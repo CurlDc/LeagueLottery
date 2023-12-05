@@ -40,6 +40,10 @@ class Person:
         self.pref_list = []
         self.team_pref = {}
 
+    def eligible_for_additional_leagues(self, global_league_limit=25):
+        return self.assigned_leagues() < self.leagues_desired\
+               and self.assigned_leagues() < global_league_limit
+
 
 coordinator_placeholder = Person(0, "Coordinator", "Coordinator", 7)
 
@@ -53,8 +57,7 @@ class Entry:
         return len(self.eligible_entrants(global_league_limit))
 
     def eligible_entrants(self, global_league_limit=25):
-        return [entrant for entrant in self.entrants if entrant.assigned_leagues() < entrant.leagues_desired
-                and entrant.assigned_leagues() < global_league_limit]
+        return [entrant for entrant in self.entrants if entrant.eligible_for_additional_leagues()]
 
     def assigned_leagues(self):
         if self.size() > 0:
@@ -264,7 +267,8 @@ def run_league_registration(league_list, registrant_list, league_limit):
             if entrants_to_waitlist:
                 league.add_to_waitlist(entrants_to_waitlist)
                 registered_players = [reg for reg in registrant_list if
-                                      reg.league_preference(league.identifier) > registration_round]
+                                      reg.league_preference(league.identifier) > registration_round
+                                      and reg.eligible_for_additional_leagues()]
                 random.shuffle(registered_players)
                 registered_players.sort(key=lambda reg_player: reg_player.league_preference(league))
 
