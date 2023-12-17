@@ -135,14 +135,14 @@ def load_registration_data(filename, league_dict):
                 league_id, team_column = league_dict[pref_1_name]
                 pref_list.append(league_id)
                 team_pref[league_id] = mk_int(row[team_column])
-                if row['League Lottery - 1st Choice: Coordinator?'] == 'Y':
-                    coordinator = league_dict[pref_1_name]
+                if row['League Lottery: Coordinator'] == pref_1_name:
+                    coordinator = league_id
             if is_valid_league_choice(pref_2_name):
                 league_id, team_column = league_dict[pref_2_name]
                 pref_list.append(league_id)
                 team_pref[league_id] = mk_int(row[team_column])
-                if row['League Lottery - 2nd Choice: Coordinator?'] == 'Y':
-                    coordinator = league_dict[pref_2_name]
+                if row['League Lottery: Coordinator'] == pref_2_name:
+                    coordinator = league_id
             if is_valid_league_choice(pref_3_name):
                 league_id, team_column = league_dict[pref_3_name]
                 pref_list.append(league_id)
@@ -303,7 +303,7 @@ if __name__ == '__main__':
     league_list = [League(0, "Sunday Pizza League", 72),
                    League(1, "Monday Men's", 40),
                    League(2, "Monday Women's(Front End)", 17),  # extra place since coordinator won't be replaced
-                   League(3, "Monday Women's(Back End)", 17),  # extra place since no coordinator was named
+                   League(3, "Monday Women's(Back End)", 16),
                    League(4, "Tuesday Doubles", 20),
                    League(5, "Tuesday Social", 40),
                    League(7, "Thursday Open", 72),
