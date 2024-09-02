@@ -1,4 +1,5 @@
 # coding=utf-8
+import argparse
 import random
 import csv
 import json
@@ -310,9 +311,13 @@ if __name__ == '__main__':
                    League(8, "TGIF Early", 32),
                    League(9, "TGIF Late", 32)]
 
-    player_list = load_registration_data(
-        'C:/Users/Gilad/PycharmProjects/CurlingRegistration/venv/MemberRegistrationSpring2024.csv',
-        league_dict)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input-file', help='Input CSV with registrants', required=True)
+    parser.add_argument('-o', '--output-file', help='Path to write lottery results', required=True)
+    args = parser.parse_args()
+
+    player_list = load_registration_data(args.input_file, league_dict)
+
     print_player_report(player_list)
     print_league_report(league_list)
 
