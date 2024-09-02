@@ -241,45 +241,45 @@ def run_league_registration(league_list, registrant_list, league_limit):
                     player.pref_list.remove(league.identifier)
 
         registration_round += 1
-        print ' '.join(["End of round", str(registration_round)])
+        print(' '.join(["End of round", str(registration_round)]))
         print_league_report(league_list)
 
 
 def print_league_report(league_list):
     for league in league_list:
-        print league.name
-        print 'Available Spots:'
-        print league.spots_remaining()
-        print 'Roster:'
+        print(league.name)
+        print('Available Spots:')
+        print(league.spots_remaining())
+        print('Roster:')
         for player in league.participant_list:
-            print player.name
-        print 'Waitlist:'
+            print(player.name)
+        print('Waitlist:')
         for waiter in league.waitlist:
-            print waiter.name
+            print(waiter.name)
 
 
 def print_league_email_report(league_list):
     for league in league_list:
-        print league.name
-        print 'Available Spots:'
-        print league.spots_remaining()
-        print 'Roster:'
+        print(league.name)
+        print('Available Spots:')
+        print(league.spots_remaining())
+        print('Roster:')
         for player in league.participant_list:
-            print player.email
-        print 'Waitlist:'
+            print(player.email)
+        print('Waitlist:')
         for waiter in league.waitlist:
-            print waiter.email
+            print(waiter.email)
 
 
 def print_player_report(player_list):
     for player in player_list:
-        print player.name
-        print player.email
-        print player.leagues_desired
-        print player.pref_list
-        print player.team_pref
-        print player.assignments
-        print player.waitlist_assignments
+        print(player.name)
+        print(player.email)
+        print(player.leagues_desired)
+        print(player.pref_list)
+        print(player.team_pref)
+        print(player.assignments)
+        print(player.waitlist_assignments)
 
 
 def save_data(filename, league_list, player_list):
@@ -316,9 +316,11 @@ if __name__ == '__main__':
     print_player_report(player_list)
     print_league_report(league_list)
 
-    run_league_registration(league_list, player_list, 7)
-    save_data('dataExportSpring2024.json', league_list, player_list)
-    print "League registration completed"
+    run_league_registration(league_list, player_list)
+
+    save_data(args.output_file, league_list, player_list)
+
+    print("League registration completed")
     print_league_email_report(league_list)
     print_player_report(player_list)
     print_league_report(league_list)
