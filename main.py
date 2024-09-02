@@ -116,54 +116,28 @@ def load_registration_data(filename, league_dict):
         for row in csv_reader:
             if row['First Name'] == 'EOF':
                 break
-            if row['League Lottery - Max # of Leagues Desired'] == '--No Lottery Leagues--' or row['League Lottery - Max # of Leagues Desired'] == '':
+            if row['League Lottery - Max # of Leagues Desired'] == '--No Lottery Leagues--' \
+               or row['League Lottery - Max # of Leagues Desired'] == '':
                 continue
             identifier = row['Member ID']
             email = row['Email']
             name = ' '.join([row['First Name'], row['Last Name']])
             leagues_desired = mk_int(row['League Lottery - Max # of Leagues Desired'])
-            pref_1_name = row['League Lottery - 1st Choice']
-            pref_2_name = row['League Lottery - 2nd Choice']
-            pref_3_name = row['League Lottery - 3rd Choice']
-            pref_4_name = row['League Lottery - 4th Choice']
-            pref_5_name = row['League Lottery - 5th Choice']
-            pref_6_name = row['League Lottery - 6th Choice']
-            pref_7_name = row['League Lottery - 7th Choice']
             pref_list = []
             team_pref = {}
             coordinator = -1
-            if is_valid_league_choice(pref_1_name):
-                league_id, team_column = league_dict[pref_1_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-                if row['League Lottery: Coordinator'] == pref_1_name:
-                    coordinator = league_id
-            if is_valid_league_choice(pref_2_name):
-                league_id, team_column = league_dict[pref_2_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-                if row['League Lottery: Coordinator'] == pref_2_name:
-                    coordinator = league_id
-            if is_valid_league_choice(pref_3_name):
-                league_id, team_column = league_dict[pref_3_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-            if is_valid_league_choice(pref_4_name):
-                league_id, team_column = league_dict[pref_4_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-            if is_valid_league_choice(pref_5_name):
-                league_id, team_column = league_dict[pref_5_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-            if is_valid_league_choice(pref_6_name):
-                league_id, team_column = league_dict[pref_6_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
-            if is_valid_league_choice(pref_7_name):
-                league_id, team_column = league_dict[pref_7_name]
-                pref_list.append(league_id)
-                team_pref[league_id] = mk_int(row[team_column])
+            for p in [row[lotto_choice] for lotto_choice in ['League Lottery - 1st Choice',
+                                                             'League Lottery - 2nd Choice',
+                                                             'League Lottery - 3rd Choice',
+                                                             'League Lottery - 4th Choice',
+                                                             'League Lottery - 5th Choice',
+                                                             'League Lottery - 6th Choice',
+                                                             'League Lottery - 7th Choice'] ]:
+                if is_valid_league_choice(p):
+                    league_id = league_dict[p]
+                    pref_list.append(league_id)
+                    if row[f'League Lottery - {p}: Willing to Coordinate?'] == 'Y':
+                        coordinator = league_id
             registrant_list.append(Person(identifier, name, email, leagues_desired, pref_list, team_pref, coordinator))
 
     return registrant_list
@@ -291,16 +265,16 @@ def save_data(filename, league_list, player_list):
 
 
 if __name__ == '__main__':
-    league_dict = {"Sunday Pizza": (0, "Pizza: Team"),
-                   "Monday Men's": (1, "Men's: Team"),
-                   "Monday Women's": (2, "Women's: Team"),
-                   "Tuesday Doubles": (4, "Doubles: Team"),
-                   "Tuesday Social": (5, "Tuesday Social: Team"),
-                   "Thursday Open": (7, "Thursday: Team"),
-                   "TGIF Early": (8, "TGIF Early: Team"),
-                   "TGIF Late": (9, "TGIF Late: Team")}
+    league_dict = {"Sunday Pizza": 0,
+                   "Monday Men's": 1,
+                   "Monday Women's": 3,
+                   "Tuesday Doubles": 4,
+                   "Tuesday Social": 5,
+                   "Thursday Open": 7,
+                   "TGIF Early": 8,
+                   "TGIF Late": 9}
 
-    league_list = [League(0, "Sunday Pizza League", 72),
+    league_list = [League(0, "Sunday Pizza", 72),
                    League(1, "Monday Men's", 40),
                    League(3, "Monday Women's", 16),
                    League(4, "Tuesday Doubles", 20),
@@ -319,7 +293,7 @@ if __name__ == '__main__':
     print_player_report(player_list)
     print_league_report(league_list)
 
-    run_league_registration(league_list, player_list)
+    run_league_registration(league_list, player_list, 7)
 
     save_data(args.output_file, league_list, player_list)
 
