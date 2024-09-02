@@ -293,8 +293,7 @@ def save_data(filename, league_list, player_list):
 if __name__ == '__main__':
     league_dict = {"Sunday Pizza": (0, "Pizza: Team"),
                    "Monday Men's": (1, "Men's: Team"),
-                   "Monday Women's (Front End)": (2, "Women's: Team"),
-                   "Monday Women's (Back End)": (3, "Women's: Team"),
+                   "Monday Women's": (2, "Women's: Team"),
                    "Tuesday Doubles": (4, "Doubles: Team"),
                    "Tuesday Social": (5, "Tuesday Social: Team"),
                    "Thursday Open": (7, "Thursday: Team"),
@@ -303,8 +302,7 @@ if __name__ == '__main__':
 
     league_list = [League(0, "Sunday Pizza League", 72),
                    League(1, "Monday Men's", 40),
-                   League(2, "Monday Women's(Front End)", 17),  # extra place since coordinator won't be replaced
-                   League(3, "Monday Women's(Back End)", 16),
+                   League(3, "Monday Women's", 16),
                    League(4, "Tuesday Doubles", 20),
                    League(5, "Tuesday Social", 40),
                    League(7, "Thursday Open", 72),
