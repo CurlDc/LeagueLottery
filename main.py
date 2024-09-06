@@ -3,301 +3,292 @@ import argparse
 import random
 import csv
 import json
+import logging
+
+logging.basicConfig(filename='LeagueLottery.log', filemode='w', level=logging.DEBUG)
+log = logging.getLogger()
 
 
-class Person:
+class Member:
+    """ All registion preferences, information, and league assignments for a club member
+    """
 
-    def __init__(self, identifier, name, email, leagues_desired, pref_list=[], team_pref={}, league_coordinated=-1):
-        self.identifier = identifier
+    def __init__(self, id, name, email, num_leagues_desired, league_preferences):
+        """Initialize a new Member object
+
+        Args:
+            identifier (int): member id for the member
+            name (str): first and last name of the member
+            email (str): email address of the member
+            num_leagues_desired (int): the maximum number of leagues the member wants to register
+            league_preferences (list(string)): the ordered list of preferences for leagues the member wants to register
+        """
+        self.id= id
         self.name = name
         self.email = email
-        self.leagues_desired = leagues_desired
-        self.pref_list = pref_list
-        self.team_pref = team_pref  # dictionary keyed by league, value is team ID
-        self.assignments = []
-        self.waitlist_assignments = []
-        self.league_coordinated = league_coordinated
+        self.num_leagues_desired = num_leagues_desired
+        self.league_preferences = league_preferences
+        self.registered_leagues = []
+        self.waitlisted_leagues = []
 
-    def assigned_leagues(self):
-        return len(self.assignments)
+    def add_new_league_registration(self, new_assignment):
+        """Inform the member they've been assigned to a league 
 
-    # If the league was not listed at all for this person this will return -1
-    def league_preference(self, league):
+        Args:
+            new_assignment (str): name of the league the member has been registered
+        """
+        self.registered_leagues.append(new_assignment)
+        self.num_leagues_desired = self.num_leagues_desired - 1
+        log.info(f'{self.name} registered for {new_assignment}')
+        log.debug(f'{self.name} still wants {self.num_leagues_desired} leagues')
+
+    def add_new_league_waitlist(self, new_assignment):
+        """Inform the member they've been waitlisted for a league 
+
+        Args:
+            new_assignment (str): name of the league the member has been registered
+        """
+        self.waitlisted_leagues.append(new_assignment)
+        log.info(f'{self.name} waitlisted for {new_assignment}')
+
+    def write_registration_report(self, output_file_handle):
+        if output_file_handle.closed:
+            raise Exception('Output file handle is closed, cannot write registration report')
+        output_file_handle.write(f'{self.name}\n')
+        output_file_handle.write(f'{"=" * 80}\n')
+        for l in self.registered_leagues:
+            output_file_handle.write(f'{l}\n')
+        output_file_handle.write('\n')
+
+    def does_want_league(self, league_name, preference_num) -> bool:
+        """determines if the member would be interested in registering for the league
+
+        Args:
+            league_name (str): name of league to check
+            preference_num (int): which preference should we be checking
+
+        Returns:
+            bool: true if the member would be interested in registering
+        """
         try:
-            return self.pref_list.index(league)
-        except ValueError:
-            return -1
-
-    def update_assignments(self, new_assignments, new_waitlist):
-        self.assignments = new_assignments
-        self.waitlist_assignments = new_waitlist
-
-    def update_preferences(self, new_leagues_desired, new_pref_list, new_team_pref):
-        self.leagues_desired += new_leagues_desired
-        self.pref_list = new_pref_list
-        self.team_pref = new_team_pref
-
-    def clear_preferences(self):
-        self.pref_list = []
-        self.team_pref = {}
-
-    def eligible_for_additional_leagues(self, global_league_limit=25):
-        return self.assigned_leagues() < self.leagues_desired\
-               and self.assigned_leagues() < global_league_limit
-
-
-coordinator_placeholder = Person(0, "Coordinator", "Coordinator", 7)
-
-
-class Entry:
-
-    def __init__(self, entrant_list, team_id):
-        self.entrants = entrant_list
-
-    def size(self, global_league_limit=25):
-        return len(self.eligible_entrants(global_league_limit))
-
-    def eligible_entrants(self, global_league_limit=25):
-        return [entrant for entrant in self.entrants if entrant.eligible_for_additional_leagues()]
-
-    def assigned_leagues(self):
-        if self.size() > 0:
-            return sum([player.assigned_leagues() for player in self.entrants]) / float(self.size())
-        return 0
+            return self.num_leagues_desired > 0 and \
+                self.league_preferences[preference_num] == league_name 
+        except:
+            return False
 
 
 class League:
+    """All the info for league registration
+    """
 
-    def __init__(self, identifier, name, capacity):
-        self.identifier = identifier
+    def __init__(self, name, capacity):
         self.name = name
+        self.max_capacity = capacity
         self.capacity = capacity
-        self.participant_list = [coordinator_placeholder]
+        self.participant_list = []
         self.waitlist = []
 
-    def spots_remaining(self):
-        return self.capacity - len(self.participant_list)
+    def has_spots_remaining(self) -> bool:
+        return self.capacity - len(self.participant_list) > 0
 
-    def add_to_league(self, registrant_list):
-        if len(registrant_list) > self.spots_remaining():
-            raise Exception
+    def add_to_league(self, registrant):
+        if not self.has_spots_remaining() :
+            msg  = f'{self.name} is full, cant add {registrant.name}'
+            log.info(msg)
+            raise Exception(msg)
+        self.participant_list.append(registrant.name)
+        log.debug(f'Adding {registrant.name} to league {self.name}')
+        registrant.add_new_league_registration(self.name)
 
-        self.participant_list.extend(registrant_list)
+    def add_to_waitlist(self, registrant):
+        self.waitlist.append(registrant.name)
+        log.debug(f'Adding {registrant.name} to league {self.name}')
+        registrant.add_new_league_waitlist(self.name)
 
-        for reg in registrant_list:
-            reg.assignments.append(self.name)
-
-    def add_to_waitlist(self, registrant_list):
-        self.waitlist.extend(registrant_list)
-
-        for reg in registrant_list:
-            reg.waitlist_assignments.append(self.name)
-
-    def add_coordinator(self, coordinator):
-        self.participant_list.remove(coordinator_placeholder)
-        self.add_to_league([coordinator])
-
-
-def mk_int(s):
-    s = s.strip()
-    return int(s) if s else -1
-
-
-def is_valid_league_choice(choice):
-    return not (choice == '--None--' or choice == '')
+    def write_registration_report(self, output_file_handle):
+        if output_file_handle.closed:
+            raise Exception('Output file handle is closed, cannot write registration report')
+        output_file_handle.write(f'{self.name}\n')
+        output_file_handle.write(f'{"=" * 80}\n')
+        output_file_handle.write(f'Max Capacity: {self.max_capacity}\n')
+        output_file_handle.write(f'Current Registration: {len(self.participant_list)}\n')
+        output_file_handle.write(f'Waitlist Size: {len(self.waitlist)}\n')
+        output_file_handle.write(f'{"-" * 80}\n')
+        output_file_handle.write(f'Roster:\n')
+        for m in self.participant_list:
+            output_file_handle.write(f'\t{m}\n')
+        output_file_handle.write(f'{"-" * 80}\n')
+        output_file_handle.write(f'Waitlist:\n')
+        for m in self.waitlist:
+            output_file_handle.write(f'\t{m}\n')
+        output_file_handle.write('\n')
 
 
-# Loads registrant data from the given file and returns a registrant list
-# League dict matches league names to ids
-def load_registration_data(filename, league_dict):
-    registrant_list = []
-    with open(filename, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
+def load_registration_data(filename) -> dict:
+    """Loads the member roster and the registration preferences from the Curling Manager export
+
+    Args:
+        filename (str): Path to the CM exported CSV file
+
+    Returns:
+        dict: All the members' registration details, keyed off of member id
+    """
+    def has_league_preference(choice):
+        return not (choice == '--None--' or choice == '')
+
+    def wants_leagues(choice):
+        return not (choice == '--No Lottery Leagues--' or choice == '')
+
+    roster = {}
+
+    #CSV Columns
+    first_name = 'First Name'
+    last_name = 'Last Name'
+    member_id = 'Member ID'
+    email = 'Email'
+    num_leagues_requested = 'League Lottery - Max # of Leagues Desired'
+    lottery_choices = ['League Lottery - 1st Choice',
+                       'League Lottery - 2nd Choice',
+                       'League Lottery - 3rd Choice',
+                       'League Lottery - 4th Choice',
+                       'League Lottery - 5th Choice',
+                       'League Lottery - 6th Choice',
+                       'League Lottery - 7th Choice'
+                       ]
+
+    with open(filename, mode='r') as handle:
+        csv_reader = csv.DictReader(handle)
         for row in csv_reader:
-            if row['First Name'] == 'EOF':
-                break
-            if row['League Lottery - Max # of Leagues Desired'] == '--No Lottery Leagues--' \
-               or row['League Lottery - Max # of Leagues Desired'] == '':
+            if not wants_leagues(row[num_leagues_requested]):
+                log.info(f"{row[first_name]} {row[last_name]} doesn't want any leagues")
                 continue
-            identifier = row['Member ID']
-            email = row['Email']
-            name = ' '.join([row['First Name'], row['Last Name']])
-            leagues_desired = mk_int(row['League Lottery - Max # of Leagues Desired'])
+            leagues_desired = int(row['League Lottery - Max # of Leagues Desired'].strip())
             pref_list = []
-            team_pref = {}
-            coordinator = -1
-            for p in [row[lotto_choice] for lotto_choice in ['League Lottery - 1st Choice',
-                                                             'League Lottery - 2nd Choice',
-                                                             'League Lottery - 3rd Choice',
-                                                             'League Lottery - 4th Choice',
-                                                             'League Lottery - 5th Choice',
-                                                             'League Lottery - 6th Choice',
-                                                             'League Lottery - 7th Choice'] ]:
-                if is_valid_league_choice(p):
-                    league_id = league_dict[p]
-                    pref_list.append(league_id)
-                    if row[f'League Lottery - {p}: Willing to Coordinate?'] == 'Y':
-                        coordinator = league_id
-            registrant_list.append(Person(identifier, name, email, leagues_desired, pref_list, team_pref, coordinator))
-
-    return registrant_list
+            for p in [row[l] for l in lottery_choices if has_league_preference(row[l])]:
+                pref_list.append(p)
+            log.debug(f"{row[first_name]} {row[last_name]} wants {leagues_desired} from {pref_list}")
+            roster[int(row[member_id])] = Member(int(row[member_id]),
+                                            ' '.join([row[first_name], row[last_name]]),
+                                            row[email],
+                                            leagues_desired, 
+                                            pref_list)
+    return roster
 
 
-def run_league_registration(league_list, registrant_list, league_limit):
-    registration_round = 0
-    while any(len(reg.pref_list) > registration_round for reg in registrant_list):
-        # This makes sure we process the most full league first
-        # This matters in the first round for recycling players who got waitlisted
-        available_spots_after_first_round = dict(zip(league_list,
-                                                map(lambda league: league.capacity - len([reg for reg in registrant_list
-                                                 if len(reg.pref_list) > registration_round
-                                                 and reg.pref_list[registration_round] == league.identifier])
-                                                                  , league_list)))
-        sorted_league_list = sorted(league_list, key=lambda league: available_spots_after_first_round[league])
-        for league in sorted_league_list:
+def initialize_leagues(coordinator_csv, roster) -> dict:
+    """Uses the CSV provided by member services to register the coordinators in the appropriate leagues. 
+    
+    Note currently only the first coordinator is guarenteed a spot.
 
-            league_round_specific_player_list = [reg for reg in registrant_list
-                                                 if len(reg.pref_list) > registration_round
-                                                 and reg.pref_list[registration_round] == league.identifier]
+    Args:
+        coordinator_csv (str): Path to file containing coordinator info
+        roster (dict(Member)): All members registering for the season, keyed off of the member id
 
-            if not league_round_specific_player_list:  # When the league was not selected by anyone or is full
+    Returns:
+        a dictionary containing the leagues with the appropriate number of teams and coordinators, keyed off of the league names.
+    """
+    # Expected columns in the CSV
+    # the ids are the Member IDs Curling Manager provides
+    league_name = 'League'
+    num_teams_col = 'Max teams'
+    coordinator_1_id = 'Coordinator #1'
+    coordinator_2_id = 'Coordinator #2'
+    coordinator_3_id = 'Coordinator #3'
+
+    leagues = {}
+
+    with open(coordinator_csv, 'r') as file_handle:
+        csv_reader = csv.DictReader(file_handle)
+        for row in csv_reader:
+            if row['League'] == 'EOF':
+                break
+
+            current_league = row[league_name].strip()
+            league_capacity = int(row[num_teams_col].strip()) * 4
+            coordinator_id = int(row[coordinator_1_id].strip())
+
+            new_league = League(current_league, league_capacity)
+            log.info(f'Adding {roster[coordinator_id].name} as coordinator for {current_league}')
+            new_league.add_to_league(roster[coordinator_id])
+            # Don't bother checking for the exception, the league is empty so unless we have bad data it shouldn't fail here
+
+            leagues[current_league] = new_league
+    return leagues
+
+
+def run_league_registration(roster, leagues, max_num_league_choices=7):
+    """Run the lottery and register members for leagues
+
+    Args:
+        roster (dict(int:Member)): all the members, keyed by member id
+        leagues (dict(str:League)): all the leagues, keyed by name
+        max_num_league_choices (int) : The maximum number of leage preferences a member can have. Defaults to 7
+    """
+    for r in range(7):
+        for league in leagues.values():
+            log.debug(f'Running selections for {r} preference for {league.name}')
+            if not league.has_spots_remaining():
+                log.debug(f'{league.name} is full, moving to next league')
                 continue
-            # Process player list to have entry list with teams properly grouped
-            teams = {}
-            for player in league_round_specific_player_list:
-                if player.league_coordinated == league.identifier:
-                    league.add_coordinator(player)
-                    continue
-                if league.identifier in player.team_pref.keys():
-                    player_team = player.team_pref[league.identifier]
-                    if player_team not in teams.keys():
-                        teams[player_team] = []
-                    teams[player_team].append(player)
+            candidates = []
+            for member in roster.values():
+                if member.does_want_league(league.name, r):
+                    log.debug(f'{member.name} will be a candidate for {league.name}')
+                    candidates.append(member)
 
-            entrant_list = []
-            for team, teammates in teams.items():
-                # Handle people who don't have a team
-                if team == -1:
-                    for single_entrant in teammates:
-                        entrant_list.append(Entry([single_entrant], team))
-                # When people have indicated a team group them together as one entry
-                else:
-                    entrant_list.append(Entry(teammates, team))
-            # randomly order the interested participants
-            random.shuffle(entrant_list)
-            # Ensures players with less leagues are prioritized first
-            entrant_list.sort(key=lambda entrant: entrant.assigned_leagues())
+            if len(candidates) <= league.capacity:
+                log.info(f'Adding all {len(candidates)} to {league.name} league')
+                winners = candidates
+            else:
+                log.info(f'Selecting up to {league.capacity} new candidates for {league.name}')
+                winners = random.sample(candidates, k=league.capacity)
 
-            capacity = league.spots_remaining()
-
-            entrants_to_add = []
-            entrants_to_waitlist = []
-            for ent in entrant_list:
-                # If the next team in the list fits in the league
-                if capacity - len(entrants_to_add) >= ent.size(league_limit):
-                    entrants_to_add.extend(ent.eligible_entrants(league_limit))
-                # If the full team does not fit
-                else:
-                    entrants_to_waitlist.extend(ent.eligible_entrants(league_limit))
-
-            league.add_to_league(entrants_to_add)
-            if entrants_to_waitlist:
-                league.add_to_waitlist(entrants_to_waitlist)
-                registered_players = [reg for reg in registrant_list if
-                                      reg.league_preference(league.identifier) > registration_round
-                                      and reg.eligible_for_additional_leagues()]
-                random.shuffle(registered_players)
-                registered_players.sort(key=lambda reg_player: reg_player.league_preference(league))
-
-                league.add_to_waitlist(registered_players)
-                if registration_round == 0:  # In the first round recycle waitlisted people into their second choice
-                    registered_players.extend(entrants_to_waitlist)
-                for player in registered_players:
-                    player.pref_list.remove(league.identifier)
-
-        registration_round += 1
-        print(' '.join(["End of round", str(registration_round)]))
-        print_league_report(league_list)
-
-
-def print_league_report(league_list):
-    for league in league_list:
-        print(league.name)
-        print('Available Spots:')
-        print(league.spots_remaining())
-        print('Roster:')
-        for player in league.participant_list:
-            print(player.name)
-        print('Waitlist:')
-        for waiter in league.waitlist:
-            print(waiter.name)
-
-
-def print_league_email_report(league_list):
-    for league in league_list:
-        print(league.name)
-        print('Available Spots:')
-        print(league.spots_remaining())
-        print('Roster:')
-        for player in league.participant_list:
-            print(player.email)
-        print('Waitlist:')
-        for waiter in league.waitlist:
-            print(waiter.email)
-
-
-def print_player_report(player_list):
-    for player in player_list:
-        print(player.name)
-        print(player.email)
-        print(player.leagues_desired)
-        print(player.pref_list)
-        print(player.team_pref)
-        print(player.assignments)
-        print(player.waitlist_assignments)
-
-
-def save_data(filename, league_list, player_list):
-    save_obj = {'league_list': league_list, 'player_list': player_list}
-    with open(filename, 'w') as f:
-        content = json.dumps(save_obj, default=lambda o: o.__dict__)
-        f.write(content)
-
-
+            for winner in winners:
+                log.debug(f'Adding {winner.name} to {league.name}')
+                try:
+                    league.add_to_league(winner)
+                except:
+                    log.warning(f'{league.name} is full, adding {winner.name} to the waitlist')
+                    #this shouldn't really happen since we're using remaining capacity to select
+                    league.add_to_waitlist(winner)
+            for unfortunate_member in [x for x in candidates if x not in winners]:
+                log.debug(f'{league.name} is full, adding {winner.name} to the waitlist')
+                league.add_to_waitlist(unfortunate_member)
+            
+    
 if __name__ == '__main__':
-    league_dict = {"Sunday Pizza": 0,
-                   "Monday Men's": 1,
-                   "Monday Women's": 3,
-                   "Tuesday Doubles": 4,
-                   "Tuesday Social": 5,
-                   "Thursday Open": 7,
-                   "TGIF Early": 8,
-                   "TGIF Late": 9}
-
-    league_list = [League(0, "Sunday Pizza", 72),
-                   League(1, "Monday Men's", 40),
-                   League(3, "Monday Women's", 16),
-                   League(4, "Tuesday Doubles", 20),
-                   League(5, "Tuesday Social", 40),
-                   League(7, "Thursday Open", 72),
-                   League(8, "TGIF Early", 32),
-                   League(9, "TGIF Late", 32)]
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--input-file', help='Input CSV with registrants', required=True)
+    parser.add_argument('-c', '--coordinator-file', help='Input CSV with approved coordinator data', required=True)
     parser.add_argument('-o', '--output-file', help='Path to write lottery results', required=True)
     args = parser.parse_args()
 
-    player_list = load_registration_data(args.input_file, league_dict)
+    log.debug(f'Loading registration data from {args.input_file}')
+    roster = load_registration_data(args.input_file)
 
-    print_player_report(player_list)
-    print_league_report(league_list)
+    log.debug(f'Loading league initialization data from {args.coordinator_file}')
+    leagues = initialize_leagues(args.coordinator_file, roster)
 
-    run_league_registration(league_list, player_list, 7)
-
-    save_data(args.output_file, league_list, player_list)
+    log.debug(f'Running lottery')
+    run_league_registration(roster, leagues)
 
     print("League registration completed")
-    print_league_email_report(league_list)
-    print_player_report(player_list)
-    print_league_report(league_list)
+
+    with open(args.output_file, 'w') as output_handle:
+        output_handle.write('Registration Results\n')
+        output_handle.write(f'{"*" * 80}\n')
+        for member in roster.values():
+            member.write_registration_report(output_handle)
+            output_handle.write('\n\n')
+
+        output_handle.write(f'{"*" * 80}\n')
+        output_handle.write(f'{"*" * 80}\n')
+        output_handle.write(f'{"*" * 80}\n')
+
+        output_handle.write('\n\n')
+        output_handle.write('League Rosters:\n')
+        output_handle.write(f'{"*" * 80}\n')
+        for league in leagues.values():
+            league.write_registration_report(output_handle)
+            output_handle.write('\n\n')
