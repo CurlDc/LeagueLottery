@@ -190,7 +190,8 @@ def initialize_leagues(coordinator_csv, roster) -> dict:
     # Expected columns in the CSV
     # the ids are the Member IDs Curling Manager provides
     league_name = 'League'
-    num_teams_col = 'Max teams'
+    num_teams = 'Max teams'
+    num_per_team = 'Players per team'
     coordinator_1_id = 'Coordinator #1'
     coordinator_2_id = 'Coordinator #2'
     coordinator_3_id = 'Coordinator #3'
@@ -204,7 +205,7 @@ def initialize_leagues(coordinator_csv, roster) -> dict:
                 break
 
             current_league = row[league_name].strip()
-            league_capacity = int(row[num_teams_col].strip()) * 4
+            league_capacity = int(row[num_teams].strip()) * int(row[num_per_team].strip()) 
             coordinator_id = int(row[coordinator_1_id].strip())
 
             new_league = League(current_league, league_capacity)
